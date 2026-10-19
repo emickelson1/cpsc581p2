@@ -1,0 +1,19 @@
+schema_version = "1.0.0"
+id = "expert_novice"
+version = "0.1.0"
+name = "Expert/Novice Voice Guide"
+tagline = "Live voice transcription for guided Blender sessions"
+maintainer = "Example <Example@example.com>"
+type = "add-on"
+blender_version_min = "4.4.0"
+license = ["SPDX:GPL-3.0-or-later"]
+platforms = ["windows-x64"]
+wheels = [
+  "./wheels/vosk.whl",
+  "./wheels/sounddevice.whl",
+  "./wheels/cffi.whl",
+  "./wheels/pycparser.whl",
+]
+
+[permissions]
+microphone = "Capture the Expert's voice"
