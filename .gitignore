@@ -1,8 +1,10 @@
 # Model
 model/**
+vosk-model-small-en-us-0.15/**
 
 # Virtual environment
 .venv/**
+libs/**
 
 # Python compiled files
 **/__pycache__/**
