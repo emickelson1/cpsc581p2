@@ -6,3 +6,6 @@ model/**
 
 # Python compiled files
 **/__pycache__/**
+
+# Visual Studio config
+.vs/
