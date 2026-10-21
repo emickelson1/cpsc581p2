@@ -3,8 +3,8 @@ import bpy, sys, re, time, queue, functools
 NS = bpy.app.driver_namespace
 
 # ---------------- config ----------------
-TRANSCRIBER_DIR = r"C:\Users\xSkul\OneDrive\Documents\Projects\CPSC581\cpsc581p2\scripts"
-MODEL_PATH = r"C:\Users\xSkul\OneDrive\Documents\Projects\CPSC581\cpsc581p2\model"
+TRANSCRIBER_DIR = r"C:\Users\Skull\Projects\CPSC581\CPSC581P2\scripts"
+MODEL_PATH = r"C:\Users\Skull\Projects\CPSC581\CPSC581P2\model"
 EXTRA_SITE_PACKAGES = None
 LAST_N_WORDS = 4
 HIGHLIGHT_SECONDS = 5.0

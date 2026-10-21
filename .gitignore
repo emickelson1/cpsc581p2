@@ -8,3 +8,6 @@ libs/**
 
 # Python compiled files
 **/__pycache__/**
+
+# Blender backups
+*.blend1
