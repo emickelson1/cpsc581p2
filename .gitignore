@@ -9,5 +9,9 @@ libs/**
 # Python compiled files
 **/__pycache__/**
 
+
+# Visual Studio config
+.vs/
+
 # Blender backups
 *.blend1
