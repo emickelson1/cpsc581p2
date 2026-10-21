@@ -1,6 +1,33 @@
 # CPSC581 Project 2
 
-### Voice recognition
+## How to Run
+
+### Install
+1. Clone the repository
+> git clone https://github.com/emickelson1/cpsc581p2.git
+2. Download the [model](https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip) (see Voice Recognition below for more details)
+3. Unzip the model, move it to the project directory, and rename it as `model`
+4. Install the dependencies:
+
+> python -m venv .venv
+> 
+> .\\.venv\Scripts\activate
+> 
+> pip install -r requirements.txt
+
+### Start Application
+Novice: In Blender, the novice must navigate to the `Scripts` tab, load `novice_start.py`, and hit the `Run Script` button. To start hosting, open the `Novice` tab in the 'N' menu, and click Start.
+
+Expert: Run `expert_start.py`.
+
+If the novice is hosting and the expert (client) is searching, they will automatically connect.
+
+### Stop Application
+At any time, the novice can stop the session using the 'N' menu interface (hit `Stop`). The expert can stop the session by pressing `Ctrl+C`.
+
+
+
+## Voice Recognition
 
 Using Vosk Speech Recognition Toolkit: https://github.com/alphacep/vosk-api/tree/master
 

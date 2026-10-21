@@ -1,14 +1,16 @@
-import bpy, sys, re, time, queue, functools
+"""Button-highlighting logic for the novice's Blender session.
+
+Imported by novice_start.py. Importing has no side effects: call start() to patch the UI,
+feed it speech with handle_text(kind, text), call update() regularly from a timer, and call stop() to undo everything.
+"""
+import bpy, sys, re, time, functools
 
 NS = bpy.app.driver_namespace
 
 # ---------------- config ----------------
-TRANSCRIBER_DIR = r"C:\Users\Skull\Projects\CPSC581\CPSC581P2\scripts"
-MODEL_PATH = r"C:\Users\Skull\Projects\CPSC581\CPSC581P2\model"
-EXTRA_SITE_PACKAGES = None
 LAST_N_WORDS = 4
 HIGHLIGHT_SECONDS = 5.0
-TICK_DELAY = 0.2
+TICK_DELAY = 0.2                    # seconds between flash toggles
 REG_TTL = 1.0                       # seconds a button stays "visible" after its last draw
 HIGHLIGHT = (0x7D / 255, 0xE7 / 255, 0x9E / 255, 1.0)
 
@@ -19,15 +21,19 @@ HIGHLIGHT = (0x7D / 255, 0xE7 / 255, 0x9E / 255, 1.0)
 LEAF = {"operator", "prop", "prop_enum", "menu", "operator_menu_enum", "prop_menu_enum"}
 CONTAINER = {"row", "column", "box", "split", "column_flow", "grid_flow"}
 
+EXCLUDE_CLASSES = set()             # class names whose draw() must not be patched (e.g. our own panel)
+
 PHASE = {"on": False}
 REG = {}                            # (class, index) -> (name, label, last_seen)
 TARGETS = set()                     # keys currently highlighted
-STATE = {"until": 0.0, "label": None, "tr": None}
+STATE = {"until": 0.0, "label": None, "last_toggle": 0.0}
 
 
 def log(msg):
-    sys.__stdout__.write(msg + "\n")
-    sys.__stdout__.flush()
+    out = sys.__stdout__ or sys.stdout
+    if out:
+        out.write(msg + "\n")
+        out.flush()
     try:
         bpy.context.workspace.status_text_set(msg[:120])
     except Exception:
@@ -63,7 +69,7 @@ def restore_highlight_color():
         owner.error = orig
 
 
-# ---------------- cleanup of earlier runs ----------------
+# ---------------- cleanup of draw patches ----------------
 def unwrap_all_draws():
     for base in (bpy.types.Panel, bpy.types.Header, bpy.types.Menu):
         for cls in base.__subclasses__():
@@ -73,14 +79,6 @@ def unwrap_all_draws():
             while hasattr(d, "_probe_orig"):
                 d = d._probe_orig
             cls.draw = d
-
-
-if "ui_probe_stop" in NS:
-    try:
-        NS["ui_probe_stop"]()
-    except Exception as e:
-        log(f"[probe] previous stop failed: {e}")
-unwrap_all_draws()
 
 
 # ---------------- matcher (swap this out to change matching) ----------------
@@ -104,6 +102,7 @@ def match(spoken, entries):
 
 
 def handle_text(kind, text):
+    """kind: 'partial' | 'final'. text: what the expert said."""
     words = text.split()[-LAST_N_WORDS:]
     entries = {k: (v[0], v[1]) for k, v in REG.items()}
     keys, label = match(" ".join(words), entries)
@@ -114,6 +113,7 @@ def handle_text(kind, text):
         STATE["until"] = time.time() + HIGHLIGHT_SECONDS
         PHASE["on"] = True
         log(f"[probe] heard '{label}' -> highlighting {len(keys)} button(s)")
+        redraw_all()
     if kind == "final":
         STATE["label"] = None
 
@@ -188,6 +188,8 @@ class SelfProxy:
 def patch_ui():
     for base in (bpy.types.Panel, bpy.types.Header, bpy.types.Menu):
         for cls in base.__subclasses__():
+            if cls.__name__ in EXCLUDE_CLASSES:
+                continue
             orig = cls.__dict__.get("draw")
             if orig is None or hasattr(orig, "_probe_orig"):
                 continue
@@ -203,57 +205,41 @@ def patch_ui():
 
 
 def redraw_all():
-    for win in bpy.context.window_manager.windows:
-        for area in win.screen.areas:
-            area.tag_redraw()
-
-
-# ---------------- transcriber ----------------
-def start_transcriber():
-    if EXTRA_SITE_PACKAGES and EXTRA_SITE_PACKAGES not in sys.path:
-        sys.path.append(EXTRA_SITE_PACKAGES)
-    if TRANSCRIBER_DIR not in sys.path:
-        sys.path.append(TRANSCRIBER_DIR)
     try:
-        from transcription import Transcriber
-        tr = Transcriber(MODEL_PATH)
-        tr.start()
-        STATE["tr"] = tr
-        log("[probe] transcriber started")
-    except Exception as e:
-        log(f"[probe] transcriber failed: {e!r} (is vosk/sounddevice installed in Blender's Python?)")
+        for win in bpy.context.window_manager.windows:
+            for area in win.screen.areas:
+                area.tag_redraw()
+    except Exception:
+        pass
 
 
-# ---------------- timer ----------------
-def tick():
+# ---------------- lifecycle ----------------
+def update():
+    """Call frequently from a timer. Flashes the highlight and expires stale state every TICK_DELAY seconds."""
     now = time.time()
+    if now - STATE["last_toggle"] < TICK_DELAY:
+        return
+    STATE["last_toggle"] = now
     PHASE["on"] = not PHASE["on"]
-
-    tr = STATE["tr"]
-    if tr:
-        while True:
-            try:
-                kind, text = tr.events.get_nowait()
-            except queue.Empty:
-                break
-            handle_text(kind, text)
-
     for k in [k for k, v in REG.items() if now - v[2] > REG_TTL]:
         del REG[k]
     if TARGETS and now > STATE["until"]:
         TARGETS.clear()
-
     redraw_all()
-    return TICK_DELAY
+
+
+def start():
+    unwrap_all_draws()              # drop patches left by an earlier copy of this module
+    set_highlight_color()
+    patch_ui()
+    log("[probe] highlighting started")
 
 
 def stop():
-    if bpy.app.timers.is_registered(tick):
-        bpy.app.timers.unregister(tick)
-    if STATE["tr"]:
-        STATE["tr"].stop()
-        STATE["tr"] = None
     TARGETS.clear()
+    REG.clear()
+    STATE["label"] = None
+    PHASE["on"] = False
     unwrap_all_draws()
     restore_highlight_color()
     try:
@@ -261,20 +247,3 @@ def stop():
     except Exception:
         pass
     redraw_all()
-    NS.pop("ui_probe_stop", None)
-
-
-def start():
-    NS["ui_probe_stop"] = stop
-    try:
-        set_highlight_color()
-        patch_ui()
-        start_transcriber()
-        bpy.app.timers.register(tick, first_interval=0.0)
-        log("[probe] started")
-    except Exception:
-        stop()
-        raise
-
-
-start()
